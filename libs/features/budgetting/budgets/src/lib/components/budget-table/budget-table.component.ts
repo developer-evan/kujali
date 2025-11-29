@@ -26,18 +26,17 @@ import { ChildBudgetsModalComponent } from '../../modals/child-budgets-modal/chi
   styleUrls: ['./budget-table.component.scss'],
 })
 export class BudgetTableComponent {
-  // Inject dependencies using modern inject() function
   private readonly _router$$ = inject(Router);
   private readonly _dialog = inject(MatDialog);
 
-  // Signal-based inputs (Angular 17.1+)
+  
   budgets = input.required<{ overview: BudgetRecord[]; budgets: any[] }>();
   canPromote = input<boolean>(false);
 
   // Signal-based output
   doPromote = output<void>();
 
-  // Internal component state as signals
+  
   dataSource = signal(new MatTableDataSource());
   overviewBudgets = signal<BudgetRecord[]>([]);
 
@@ -53,7 +52,6 @@ export class BudgetTableComponent {
   @ViewChild('sort', { static: true }) sort: MatSort;
 
   constructor() {
-    // Effect to reactively update dataSource when budgets change
     effect(() => {
       const budgetsData = this.budgets();
       this.overviewBudgets.set(budgetsData.overview);
@@ -70,11 +68,7 @@ export class BudgetTableComponent {
     this.dataSource.set(currentDataSource);
   }
 
-  /**
-   * Checks whether the user has access to a certain feature.
-   *
-   * @TODO @IanOdhiambo9 - Please put proper access control architecture in place.
-   */
+ 
   access(requested: any) {
     switch (requested) {
       case 'view':
