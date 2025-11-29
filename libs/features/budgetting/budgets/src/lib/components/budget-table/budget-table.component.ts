@@ -1,4 +1,13 @@
-import { Component, EventEmitter, input, output, ViewChild, inject, signal, effect } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  input,
+  output,
+  ViewChild,
+  inject,
+  signal,
+  effect,
+} from '@angular/core';
 import { MatTable, MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatDialog } from '@angular/material/dialog';
@@ -16,14 +25,13 @@ import { ChildBudgetsModalComponent } from '../../modals/child-budgets-modal/chi
   templateUrl: './budget-table.component.html',
   styleUrls: ['./budget-table.component.scss'],
 })
-
 export class BudgetTableComponent {
   // Inject dependencies using modern inject() function
   private readonly _router$$ = inject(Router);
   private readonly _dialog = inject(MatDialog);
 
   // Signal-based inputs (Angular 17.1+)
-  budgets = input.required<{overview: BudgetRecord[], budgets: any[]}>();
+  budgets = input.required<{ overview: BudgetRecord[]; budgets: any[] }>();
   canPromote = input<boolean>(false);
 
   // Signal-based output
@@ -33,7 +41,13 @@ export class BudgetTableComponent {
   dataSource = signal(new MatTableDataSource());
   overviewBudgets = signal<BudgetRecord[]>([]);
 
-  displayedColumns: string[] = ['name', 'status', 'startYear', 'duration', 'actions'];
+  displayedColumns: string[] = [
+    'name',
+    'status',
+    'startYear',
+    'duration',
+    'actions',
+  ];
 
   @ViewChild(MatPaginator) paginator: MatPaginator;
   @ViewChild('sort', { static: true }) sort: MatSort;
@@ -56,12 +70,12 @@ export class BudgetTableComponent {
     this.dataSource.set(currentDataSource);
   }
 
-  /** 
+  /**
    * Checks whether the user has access to a certain feature.
-   * 
-   * @TODO @IanOdhiambo9 - Please put proper access control architecture in place. 
+   *
+   * @TODO @IanOdhiambo9 - Please put proper access control architecture in place.
    */
-  access(requested: any) {  
+  access(requested: any) {
     switch (requested) {
       case 'view':
       case 'clone':
@@ -80,22 +94,20 @@ export class BudgetTableComponent {
     if (currentDataSource.paginator) {
       currentDataSource.paginator.firstPage();
     }
-    
+
     this.dataSource.set(currentDataSource);
   }
 
   promote() {
-    if (this.canPromote())
-      this.doPromote.emit();
+    if (this.canPromote()) this.doPromote.emit();
   }
 
   /** Open share screen to configure budget access. */
-  openShareBudgetDialog(parent: Budget | false): void 
-  {
+  openShareBudgetDialog(parent: Budget | false): void {
     this._dialog.open(ShareBudgetModalComponent, {
       panelClass: 'no-pad-dialog',
       width: '600px',
-      data: parent != null ? parent : false
+      data: parent != null ? parent : false,
     });
   }
 
@@ -104,29 +116,30 @@ export class BudgetTableComponent {
     this._dialog.open(CreateBudgetModalComponent, {
       height: 'fit-content',
       width: '600px',
-      data: parent != null ? parent : false
+      data: parent != null ? parent : false,
     });
   }
 
-  openChildBudgetDialog(parent : Budget): void 
-  { 
+  openChildBudgetDialog(parent: Budget): void {
     const overviewBudgetsList = this.overviewBudgets();
-    let children: any = overviewBudgetsList.find((budget) => budget.budget.id === parent.id)!?.children;
-    children = children?.map((child) => child.budget)
+    let children: any = overviewBudgetsList.find(
+      (budget) => budget.budget.id === parent.id
+    )!?.children;
+    children = children?.map((child) => child.budget);
     this._dialog.open(ChildBudgetsModalComponent, {
       height: 'fit-content',
       minWidth: '600px',
-      data: {parent: parent, budgets: children}
+      data: { parent: parent, budgets: children },
     });
   }
 
   goToDetail(budgetId: string, action: string) {
-    this._router$$.navigate(['budgets', budgetId, action]).then(() => this._dialog.closeAll());
+    this._router$$
+      .navigate(['budgets', budgetId, action])
+      .then(() => this._dialog.closeAll());
   }
 
-  deleteBudget(budget: Budget) {
-
-  }
+  deleteBudget(budget: Budget) {}
 
   translateStatus(status: number) {
     switch (status) {
