@@ -33,7 +33,7 @@ export class BudgetTableComponent {
   budgets = input.required<{ overview: BudgetRecord[]; budgets: any[] }>();
   canPromote = input<boolean>(false);
 
-  // Signal-based output
+
   doPromote = output<void>();
 
   
