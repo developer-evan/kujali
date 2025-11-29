@@ -1,12 +1,9 @@
-import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { Component, EventEmitter, input, output, ViewChild, inject, signal, effect } from '@angular/core';
 import { MatTable, MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSort } from '@angular/material/sort';
-import { Router } from '@angular/router';
-
-import { SubSink } from 'subsink';
-import { Observable, tap } from 'rxjs';
+import { Router } from '@angular/core';
 
 import { Budget, BudgetRecord } from '@app/model/finance/planning/budgets';
 
@@ -21,41 +18,50 @@ import { ChildBudgetsModalComponent } from '../../modals/child-budgets-modal/chi
 })
 
 export class BudgetTableComponent {
+  // Inject dependencies using modern inject() function
+  private readonly _router$$ = inject(Router);
+  private readonly _dialog = inject(MatDialog);
 
-  private _sbS = new SubSink();
+  // Signal-based inputs (Angular 17.1+)
+  budgets = input.required<{overview: BudgetRecord[], budgets: any[]}>();
+  canPromote = input<boolean>(false);
 
-  @Input() budgets$: Observable<{overview: BudgetRecord[], budgets: any[]}>;
-  @Input() canPromote = false;
+  // Signal-based output
+  doPromote = output<void>();
 
-  @Output() doPromote: EventEmitter<void> = new EventEmitter();
-
-  dataSource = new MatTableDataSource();
+  // Internal component state as signals
+  dataSource = signal(new MatTableDataSource());
+  overviewBudgets = signal<BudgetRecord[]>([]);
 
   displayedColumns: string[] = ['name', 'status', 'startYear', 'duration', 'actions'];
 
   @ViewChild(MatPaginator) paginator: MatPaginator;
   @ViewChild('sort', { static: true }) sort: MatSort;
 
-  overviewBudgets: BudgetRecord[] = [];
+  constructor() {
+    // Effect to reactively update dataSource when budgets change
+    effect(() => {
+      const budgetsData = this.budgets();
+      this.overviewBudgets.set(budgetsData.overview);
+      const currentDataSource = this.dataSource();
+      currentDataSource.data = budgetsData.budgets;
+      this.dataSource.set(currentDataSource);
+    });
+  }
 
-  constructor(private _router$$: Router,
-              private _dialog: MatDialog,
-  ) { }
-
-  ngOnInit(): void {
-    this._sbS.sink = this.budgets$.pipe(tap((o) => {
-      this.overviewBudgets = o.overview;
-      this.dataSource.data = o.budgets;
-    })).subscribe();
+  ngAfterViewInit(): void {
+    const currentDataSource = this.dataSource();
+    currentDataSource.paginator = this.paginator;
+    currentDataSource.sort = this.sort;
+    this.dataSource.set(currentDataSource);
   }
 
   /** 
- * Checks whether the user has access to a certain feature.
- * 
- * @TODO @IanOdhiambo9 - Please put proper access control architecture in place. 
- */
-  access(requested:any) 
-  {  
+   * Checks whether the user has access to a certain feature.
+   * 
+   * @TODO @IanOdhiambo9 - Please put proper access control architecture in place. 
+   */
+  access(requested: any) {  
     switch (requested) {
       case 'view':
       case 'clone':
@@ -66,22 +72,20 @@ export class BudgetTableComponent {
     return false;
   }
 
-  ngAfterViewInit(): void {
-    this.dataSource.paginator = this.paginator;
-    this.dataSource.sort = this.sort;
-  }
-
   filterAccountRecords(event: Event) {
     const filterValue = (event.target as HTMLInputElement).value;
-    this.dataSource.filter = filterValue.trim().toLowerCase();
+    const currentDataSource = this.dataSource();
+    currentDataSource.filter = filterValue.trim().toLowerCase();
 
-    if (this.dataSource.paginator) {
-      this.dataSource.paginator.firstPage();
+    if (currentDataSource.paginator) {
+      currentDataSource.paginator.firstPage();
     }
+    
+    this.dataSource.set(currentDataSource);
   }
 
   promote() {
-    if (this.canPromote)
+    if (this.canPromote())
       this.doPromote.emit();
   }
 
@@ -106,7 +110,8 @@ export class BudgetTableComponent {
 
   openChildBudgetDialog(parent : Budget): void 
   { 
-    let children: any = this.overviewBudgets.find((budget) => budget.budget.id === parent.id)!?.children;
+    const overviewBudgetsList = this.overviewBudgets();
+    let children: any = overviewBudgetsList.find((budget) => budget.budget.id === parent.id)!?.children;
     children = children?.map((child) => child.budget)
     this._dialog.open(ChildBudgetsModalComponent, {
       height: 'fit-content',

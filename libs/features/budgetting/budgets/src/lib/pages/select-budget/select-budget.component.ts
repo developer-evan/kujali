@@ -1,8 +1,8 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 import { cloneDeep as ___cloneDeep, flatMap as __flatMap } from 'lodash';
-import { Observable, combineLatest, map, tap } from 'rxjs';
 
 import { Logger } from '@iote/bricks-angular';
 
@@ -22,46 +22,55 @@ import { CreateBudgetModalComponent } from '../../components/create-budget-modal
 /** List of all active budgets on the system. */
 export class SelectBudgetPageComponent implements OnInit
 {
-  /** Overview which contains all budgets of an organisation */
-  overview$!: Observable<OrgBudgetsOverview>;
-  sharedBudgets$: Observable<any[]>;
+  // Inject dependencies using modern inject() function
+  private readonly _orgBudgets$$ = inject(OrgBudgetsStore);
+  private readonly _budgets$$ = inject(BudgetsStore);
+  private readonly _dialog = inject(MatDialog);
+  private readonly _logger = inject(Logger);
 
-  showFilter = false;
+  // Convert observables to signals using toSignal
+  private readonly overview = toSignal(this._orgBudgets$$.get(), { initialValue: [] as OrgBudgetsOverview });
+  private readonly sharedBudgets = toSignal(this._budgets$$.get(), { initialValue: [] });
 
-  // budgetsLoaded: boolean = false;
+  // UI state as signal
+  readonly showFilter = signal(false);
 
-  allBudgets$: Observable<{overview: BudgetRecord[], budgets: any[]}>;
-
-  constructor(private _orgBudgets$$: OrgBudgetsStore,
-              private _budgets$$: BudgetsStore,
-              private _dialog: MatDialog,
-              private _logger: Logger) 
-  { }
+  // Computed signal that combines overview and budgets data
+  readonly allBudgets = computed(() => {
+    const overview = this.overview();
+    const budgets = this.sharedBudgets();
+    
+    const flattenedOverview = __flatMap(overview);
+    const flattenedBudgets = __flatMap(budgets);
+    
+    // Transform budgets to include endYear
+    const transformedBudgets = flattenedBudgets.map((budget: any) => ({
+      ...budget,
+      endYear: budget.startYear + budget.duration - 1
+    }));
+    
+    return {
+      overview: flattenedOverview,
+      budgets: transformedBudgets
+    };
+  });
 
   ngOnInit() {
-    this.overview$ = this._orgBudgets$$.get();
-    this.sharedBudgets$ = this._budgets$$.get();
-
-    this.allBudgets$ = combineLatest([this.overview$, this._budgets$$.get()])
-                      .pipe(map(([overview, budgets]) => {return {overview: __flatMap(overview), budgets: __flatMap(budgets)}}),
-                            map((overview) => {
-                              const trBudgets = overview.budgets.map((budget: any) => {budget['endYear'] = budget.startYear + budget.duration - 1; return budget;})
-                              // this.budgetsLoaded = true;
-                              return {overview: overview.overview, budgets: trBudgets}
-                            }));
+    // Component initialization if needed
+    // Data loading is handled declaratively through signals
   }
 
   applyFilter(event: Event) {
     const filterValue = (event.target as HTMLInputElement).value;
-    // this.dataSource.filter = filterValue.trim().toLowerCase();
+    // Filter logic can be implemented as needed
   }
 
-  fieldsFilter(value: (Invoice) => boolean) {    
-    // this.filter$$.next(value);
+  fieldsFilter(value: (invoice: any) => boolean) {    
+    // Filter logic can be implemented as needed
   }
 
-  toogleFilter(value) {
-    // this.showFilter = value
+  toggleFilter(value: any) {
+    this.showFilter.set(!!value);
   }
 
   openDialog(parent : Budget | false): void 
@@ -98,7 +107,8 @@ export class SelectBudgetPageComponent implements OnInit
     toSave.status = BudgetStatus.InUse;
 
     (<any> record).updating = true;
-    // Fire update
+    
+    // Fire update using signal-based approach
     this._budgets$$.update(toSave)
       .subscribe(() => {
         (<any> record).updating = false;
